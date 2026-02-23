@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SunDose — Vitamin D Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:ital,wght@0,300;0,400;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --amber: #f5a623;
+    --green: #6fcf7a;
+    --red: #e05e5e;
+    --yellow: #f5c842;
+    --text: #f0ece4;
+    --glass: rgba(10,10,20,0.65);
+    --glass-border: rgba(255,255,255,0.13);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow-x: hidden;
+    background: #010106;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* SKY */
+  #sky {
+    position: fixed;
+    inset: 0;
+    width: 100vw; height: 100vh;
+    z-index: 0;
+  }
+
+  /* CONTENT */
+  #app {
+    position: relative;
+    z-index: 2;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+  }
+
+  /* HEADER */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    animation: fadeUp 0.7s ease both;
+  }
+  .app-name {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(38px, 7vw, 54px);
+    font-weight: 900;
+    color: var(--text);
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+  .app-name span { color: var(--amber); }
+
+  .header-badge {
+    text-align: right;
+    display: none;
+  }
+  .header-badge.visible { display: block; }
+  .badge-city {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .badge-date {
+    font-size: 12px;
+    color: rgba(240,236,228,0.5);
+    margin-top: 2px;
+  }
+  .badge-phase {
+    font-size: 12px;
+    color: var(--amber);
+    margin-top: 3px;
+    font-weight: 600;
+  }
+
+  /* PHASE PILL */
+  .phase-pill {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(8,8,20,0.75);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 24px;
+    padding: 7px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .phase-pill.visible { opacity: 1; }
+
+  /* SEARCH */
+  .search-card {
+    display: flex;
+    gap: 8px;
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    align-items: center;
+    animation: fadeUp 0.7s 0.1s ease both;
+  }
+  .search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+  }
+  .search-input::placeholder { color: rgba(240,236,228,0.32); }
+  .btn {
+    background: var(--amber);
+    color: #0a0a14;
+    border: none;
+    border-radius: 12px;
+    padding: 8px 16px;
+    font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+  }
+  .btn:hover { opacity: 0.88; }
+  .btn-geo {
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-geo:hover { background: rgba(255,255,255,0.18); }
+
+  /* STAT CARDS */
+  .stat-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+    animation: fadeUp 0.7s 0.15s ease both;
+  }
+  .stat-card {
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 16px 12px;
+    text-align: center;
+  }
+  .stat-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: rgba(240,236,228,0.48);
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .stat-sub {
+    font-size: 11px;
+    color: rgba(240,236,228,0.5);
+    margin-top: 4px;
+  }
+
+  /* CHART CARD */
+  .chart-card {
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 14px;
+    animation: fadeUp 0.7s 0.2s ease both;
+  }
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+  .chart-hint {
+    font-size: 11px;
+    color: rgba(240,236,228,0.38);
+    font-style: italic;
+    margin-bottom: 16px;
+  }
+  .chart-wrap {
+    position: relative;
+    height: 220px;
+  }
+  canvas#uvChart {
+    cursor: crosshair;
+  }
+
+  /* LEGEND */
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    justify-content: flex-end;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: rgba(240,236,228,0.48);
+  }
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  /* HOVER PANEL */
+  .hover-panel {
+    display: grid;
+    grid-template-columns: 90px 1px 1fr;
+    gap: 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 16px;
+    margin-top: 14px;
+    opacity: 0;
+    transition: opacity 0.28s ease, background 0.4s ease;
+    min-height: 88px;
+    align-items: center;
+  }
+  .hover-panel.visible { opacity: 1; }
+  .panel-left { text-align: center; }
+  .panel-time {
+    font-size: 11px;
+    color: rgba(240,236,228,0.5);
+    margin-bottom: 2px;
+  }
+  .panel-uv {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .panel-badge {
+    display: inline-block;
+    margin-top: 5px;
+    padding: 2px 9px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    border: 1px solid;
+  }
+  .panel-divider {
+    background: rgba(255,255,255,0.1);
+    height: 100%;
+    min-height: 60px;
+    width: 1px;
+  }
+  .panel-right {}
+  .panel-mood {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .panel-roast {
+    font-size: 12px;
+    color: rgba(240,236,228,0.72);
+    font-style: italic;
+    line-height: 1.5;
+  }
+
+  /* ADVICE */
+  .advice-card {
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 20px;
+    margin-bottom: 14px;
+    animation: fadeUp 0.7s 0.25s ease both;
+  }
+  .advice-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .tip-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 11px;
+    align-items: flex-start;
+  }
+  .tip-icon { font-size: 14px; line-height: 1.5; flex-shrink: 0; }
+  .tip-text {
+    font-size: 13px;
+    color: rgba(240,236,228,0.75);
+    line-height: 1.55;
+  }
+  .tip-text .hi { color: var(--green); font-weight: 600; }
+  .tip-text .danger { color: var(--red); font-weight: 600; }
+
+  .skin-table { width: 100%; margin-top: 12px; }
+  .skin-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: rgba(240,236,228,0.42);
+    margin-bottom: 8px;
+  }
+  .skin-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 12px;
+  }
+  .skin-type { color: rgba(240,236,228,0.62); }
+  .skin-time { color: var(--amber); font-weight: 600; }
+
+  /* EMPTY + LOADING */
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+  }
+  .empty-icon { font-size: 56px; margin-bottom: 14px; }
+  .empty-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .empty-sub { font-size: 13px; color: rgba(240,236,228,0.45); }
+
+  .error-card {
+    background: rgba(224,94,94,0.13);
+    border: 1px solid rgba(224,94,94,0.28);
+    border-radius: 14px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--red);
+    text-align: center;
+    margin-bottom: 14px;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 50px;
+    color: rgba(240,236,228,0.45);
+    font-size: 13px;
+  }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid rgba(245,166,35,0.2);
+    border-top-color: var(--amber);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .data-section { display: none; }
+  .data-section.visible { display: block; }
+
+  @media (max-width: 480px) {
+    .stat-value { font-size: 24px; }
+    .stat-card { padding: 12px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="sky"></canvas>
+
+<div class="phase-pill" id="phasePill"></div>
+
+<div id="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="app-name">Sun<span>Dose</span></div>
+    <div class="header-badge" id="headerBadge">
+      <div class="badge-city" id="badgeCity"></div>
+      <div class="badge-date" id="badgeDate"></div>
+      <div class="badge-phase" id="badgePhase"></div>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <div class="search-card">
+    <input class="search-input" id="cityInput" type="text" placeholder="Enter city name…" />
+    <button class="btn" id="searchBtn">Search</button>
+    <button class="btn-geo" id="geoBtn" title="Auto-detect location">📍</button>
+  </div>
+
+  <div class="error-card" id="errorCard" style="display:none"></div>
+
+  <div id="loadingState" style="display:none">
+    <div class="loading"><div class="spinner"></div>Fetching UV data…</div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" id="emptyState">
+    <div class="empty-icon">☀️</div>
+    <div class="empty-title">Search a city to begin</div>
+    <div class="empty-sub">Or tap 📍 to use your current location</div>
+  </div>
+
+  <!-- Data sections -->
+  <div class="data-section" id="dataSection">
+
+    <!-- Stat cards -->
+    <div class="stat-cards">
+      <div class="stat-card">
+        <div class="stat-label">Current UV</div>
+        <div class="stat-value" id="statUV">—</div>
+        <div class="stat-sub" id="statUVSub"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Best Window</div>
+        <div class="stat-value" id="statWindow" style="font-size:17px;padding-top:6px">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Vit D Today</div>
+        <div class="stat-value" id="statPotential" style="font-size:22px;padding-top:6px">—</div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-card">
+      <div class="section-title">UV Index Today</div>
+      <div class="chart-hint">Hover the chart — the sky changes with you</div>
+      <div class="chart-wrap">
+        <canvas id="uvChart"></canvas>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#6fcf7a"></div>Optimal (3–7)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#e05e5e"></div>Danger (&gt;7)</div>
+      </div>
+
+      <!-- Hover panel -->
+      <div class="hover-panel" id="hoverPanel">
+        <div class="panel-left">
+          <div class="panel-time" id="panelTime"></div>
+          <div class="panel-uv" id="panelUV"></div>
+          <div class="panel-badge" id="panelBadge"></div>
+        </div>
+        <div class="panel-divider"></div>
+        <div class="panel-right">
+          <div class="panel-mood" id="panelMood"></div>
+          <div class="panel-roast" id="panelRoast"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advice -->
+    <div class="advice-card" id="adviceCard">
+      <div class="advice-title">Today's Advice</div>
+      <div id="adviceContent"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// SKY PALETTE
+// ═══════════════════════════════════════════════════════════════
+const SKY = {
+  0:  { g:['#010106','#030310','#050515'], stars:1.0, sun:null },
+  1:  { g:['#010106','#030310','#050515'], stars:1.0, sun:null },
+  2:  { g:['#010106','#030310','#050515'], stars:1.0, sun:null },
+  3:  { g:['#010108','#030312','#060618'], stars:1.0, sun:null },
+  4:  { g:['#020210','#04041a','#080825'], stars:0.9, sun:null },
+  5:  { g:['#1a0a2e','#3d1f5e','#7a3f6e','#e8926a','#f5c98b'], stars:0.5, sun:{cx:0.85,cy:1.05,r:50,c1:'#fff4d0'} },
+  6:  { g:['#0d1b3e','#1e3a6e','#c85a00','#f58a00','#ffd060'], stars:0.2, sun:{cx:0.82,cy:0.88,r:70,c1:'#fffbe0'} },
+  7:  { g:['#0a2150','#1a4a8a','#3a7cc0','#87ceeb','#b8ddf5'], stars:0.0, sun:{cx:0.75,cy:0.72,r:58,c1:'#fffff0'} },
+  8:  { g:['#08305a','#1560a0','#4a90c8','#87ceeb'], stars:0.0, sun:{cx:0.68,cy:0.55,r:55,c1:'#fffff5'} },
+  9:  { g:['#062040','#0e4a90','#3a80cc','#72b8e8'], stars:0.0, sun:{cx:0.60,cy:0.40,r:52,c1:'#ffffff'} },
+  10: { g:['#041530','#0a3878','#2a6ab0','#60a8dc'], stars:0.0, sun:{cx:0.55,cy:0.28,r:50,c1:'#ffffff'} },
+  11: { g:['#03080e','#062040','#1a5080','#3a90c0','#64b6e4'], stars:0.0, sun:{cx:0.52,cy:0.12,r:80,c1:'#ffffff'} },
+  12: { g:['#03080e','#062040','#1a5080','#3a90c0','#64b6e4'], stars:0.0, sun:{cx:0.50,cy:0.08,r:85,c1:'#ffffff'} },
+  13: { g:['#041020','#082848','#1e6090','#4098c0','#70b8e0'], stars:0.0, sun:{cx:0.48,cy:0.10,r:80,c1:'#fffef8'} },
+  14: { g:['#061828','#103560','#2a70a0','#50a0cc','#80c0e0'], stars:0.0, sun:{cx:0.42,cy:0.22,r:65,c1:'#fffff0'} },
+  15: { g:['#08203a','#154078','#3080b0','#60a8d8'], stars:0.0, sun:{cx:0.36,cy:0.36,r:60,c1:'#fffde8'} },
+  16: { g:['#0a2840','#1a5088','#3888b8','#68b0d8'], stars:0.0, sun:{cx:0.30,cy:0.50,r:58,c1:'#fff8d0'} },
+  17: { g:['#1a1a0a','#4a3010','#c87020','#f5a020','#f5d060'], stars:0.0, sun:{cx:0.22,cy:0.65,r:72,c1:'#ffe080'} },
+  18: { g:['#0a0810','#2a1830','#8a3828','#d86820','#f5a030','#f5c860'], stars:0.05, sun:{cx:0.16,cy:0.78,r:78,c1:'#ffd060'} },
+  19: { g:['#0d0510','#3a0a18','#980820','#e84010','#f58020','#f5b040'], stars:0.15, sun:{cx:0.10,cy:0.90,r:85,c1:'#ffb030'} },
+  20: { g:['#0a0515','#1e0828','#3a1248','#6a2858','#9a4858'], stars:0.4, sun:null },
+  21: { g:['#030210','#080520','#0d0828','#181035'], stars:0.75, sun:null },
+  22: { g:['#020108','#060318','#0a0520','#10082a'], stars:0.9, sun:null },
+  23: { g:['#010106','#030310','#050515'], stars:1.0, sun:null },
+};
+
+const SKY_PHASES = {
+  0:'Deep Night ✦',1:'Deep Night ✦',2:'Dead of Night ✦',3:'Dead of Night ✦',
+  4:'Pre-Dawn ✦',5:'Dawn ✦',6:'Sunrise ✦',7:'Early Morning ✦',8:'Morning ✦',
+  9:'Late Morning ✦',10:'Late Morning ✦',11:'Solar Noon ✦',12:'Solar Noon ✦',
+  13:'Solar Noon ✦',14:'Afternoon ✦',15:'Afternoon ✦',16:'Late Afternoon ✦',
+  17:'Golden Hour ✦',18:'Golden Hour ✦',19:'Sunset ✦',20:'Dusk ✦',
+  21:'Twilight ✦',22:'Night ✦',23:'Night ✦',
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ROAST POOLS
+// ═══════════════════════════════════════════════════════════════
+const ROASTS = {
+  dead:[
+    "The sun ghosted you at this hour. Just like your gym routine.",
+    "UV index: basically a rumour. Your vitamin D is purely theoretical.",
+    "Photons are present. They just don't care about you.",
+    "This is technically daytime. In the loosest possible sense.",
+    "Your shadow has more energy than the UV index right now.",
+    "The sun is clocked in but clearly not trying.",
+  ],
+  low:[
+    "You could stand here for 6 hours and get mildly tan. Mildly.",
+    "Decorative light only. Good for aesthetics, useless for bones.",
+    "The atmosphere is filtering this sun like a Brita for ambition.",
+    "Vitamin D production: technically possible. Statistically unlikely.",
+    "This is the participation trophy of sunlight.",
+    "Your bones filed a complaint. HR is reviewing it.",
+  ],
+  optimal:[
+    "Your bones are literally cheering. Don't waste it scrolling.",
+    "Vitamin D happy hour. Nature's free pharmacy is open.",
+    "This is the window. The actual window. Go outside.",
+    "The UV gods are smiling. You are not reciprocating.",
+    "Peak absorption zone. Your skeleton sent a reminder.",
+    "You will not get this back. Just saying.",
+    "Your phone can wait. Your bones cannot.",
+  ],
+  warm:[
+    "The sun's getting a little full of itself here.",
+    "Good UV, starting to edge into 'wear sunscreen' territory.",
+    "Vitamin D: yes. Slow cooking: also beginning.",
+    "SPF is no longer optional, it's a survival strategy.",
+    "The line between 'healthy glow' and 'mild regret' is right here.",
+    "Proceed with the confidence of someone who remembered sunscreen.",
+  ],
+  hot:[
+    "The sun is throwing punches and you are not blocking.",
+    "Apply sunscreen or accept the consequences. Both valid choices.",
+    "UV 8–9: your skin will file a formal complaint.",
+    "This is not a vibe. This is a medical situation.",
+    "Even the pavement is reconsidering its life choices.",
+    "Your melanocytes are working overtime and they want a raise.",
+  ],
+  extreme:[
+    "Even lizards are hiding. You are currently less intelligent than a lizard.",
+    "The sun has declared war on organic matter. You are organic matter.",
+    "SPF 50 is now table stakes. SPF 100 is not an overreaction.",
+    "If you go outside right now, that's not courage. That's hubris.",
+    "Scientists call this 'extreme'. The sun calls this 'Tuesday'.",
+    "Your DNA would like a word with you about your outdoor plans.",
+    "Dermatologists everywhere just felt a disturbance in the Force.",
+  ],
+};
+
+const UV_TIERS = {
+  dead:    { min:0,   max:1,   color:'#4a5568', bg:'#1a1e2e', label:'😴 Barely Alive UV' },
+  low:     { min:1,   max:3,   color:'#4a6fa5', bg:'#162038', label:'🌫️ Decorative Sunlight' },
+  optimal: { min:3,   max:6,   color:'#6fcf7a', bg:'#0f2318', label:'🌿 Golden Zone — Go Outside!' },
+  warm:    { min:6,   max:8,   color:'#f5a623', bg:'#2a1a08', label:'🌤️ Getting Spicy' },
+  hot:     { min:8,   max:10,  color:'#e8703a', bg:'#2a1008', label:'🔥 Sun\'s Throwing Punches' },
+  extreme: { min:10,  max:999, color:'#e05e5e', bg:'#2a0808', label:'☠️ The Sun Wants You Dead' },
+};
+
+function getTier(uv) {
+  if (uv < 1) return 'dead';
+  if (uv < 3) return 'low';
+  if (uv < 6) return 'optimal';
+  if (uv < 8) return 'warm';
+  if (uv < 10) return 'hot';
+  return 'extreme';
+}
+function getColor(uv) { return UV_TIERS[getTier(uv)].color; }
+function getRoast(uv, hour) {
+  const pool = ROASTS[getTier(uv)];
+  return pool[hour % pool.length];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COLOR UTILITIES
+// ═══════════════════════════════════════════════════════════════
+function hexToRgb(hex) {
+  const h = hex.replace('#','');
+  return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+}
+function lerpColor(hA, hB, t) {
+  const a=hexToRgb(hA), b=hexToRgb(hB);
+  const r=a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+  return '#'+r.map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');
+}
+function lerp(a,b,t){return a+(b-a)*t;}
+function eio(t){return t<.5?2*t*t:-1+(4-2*t)*t;}
+function pad(arr,n){const r=[...arr];while(r.length<n)r.push(r[r.length-1]);return r;}
+
+// ═══════════════════════════════════════════════════════════════
+// SKY CANVAS ENGINE
+// ═══════════════════════════════════════════════════════════════
+const skyCanvas = document.getElementById('sky');
+const skyCtx = skyCanvas.getContext('2d');
+let skyW, skyH;
+
+function resizeSky() {
+  skyW = skyCanvas.width = window.innerWidth;
+  skyH = skyCanvas.height = window.innerHeight;
+  if (!stars.length) initParticles();
+}
+window.addEventListener('resize', resizeSky);
+
+// Particles
+const stars = [], clouds = [], birds = [];
+function initParticles() {
+  stars.length = clouds.length = birds.length = 0;
+  for(let i=0;i<160;i++) stars.push({
+    x:Math.random()*skyW, y:Math.random()*skyH*0.65,
+    r:Math.random()*1.4+0.4, phase:Math.random()*Math.PI*2, speed:Math.random()*.5+.4
+  });
+  for(let i=0;i<7;i++) clouds.push({
+    x:Math.random()*skyW*1.5, y:Math.random()*skyH*0.38+skyH*0.05,
+    speed:Math.random()*0.15+0.04, sc:Math.random()*.6+.7, a:Math.random()*.28+.2
+  });
+  for(let i=0;i<9;i++) birds.push({
+    x:Math.random()*skyW, y:Math.random()*skyH*0.32+skyH*0.1,
+    speed:Math.random()*.6+.35, fo:Math.random()*Math.PI*2, sc:Math.random()*.4+.6
+  });
+}
+
+// Sky state machine
+let currentHour = new Date().getHours();
+let targetHour = currentHour;
+let skyFrom = null, skyTo = null, blendStart = null, blendProg = 1;
+const BLEND_DUR = 900;
+
+function buildSkyState(frac) {
+  const f=Math.max(0,Math.min(23.99,frac));
+  const fl=Math.floor(f), cl=Math.min(23,fl+1);
+  const t=f-fl;
+  const A=SKY[fl], B=SKY[cl];
+  const n=Math.max(A.g.length,B.g.length);
+  const g=pad(A.g,n).map((c,i)=>lerpColor(c,pad(B.g,n)[i],t));
+  const s=lerp(A.stars,B.stars,t);
+  let sun=null;
+  if(A.sun&&B.sun) sun={cx:lerp(A.sun.cx,B.sun.cx,t),cy:lerp(A.sun.cy,B.sun.cy,t),r:lerp(A.sun.r,B.sun.r,t),c1:lerpColor(A.sun.c1,B.sun.c1,t),alpha:1};
+  else if(A.sun) sun={...A.sun,alpha:1-t};
+  else if(B.sun) sun={...B.sun,alpha:t};
+  return {g,stars:s,sun};
+}
+
+function blendStates(A,B,t) {
+  const n=Math.max(A.g.length,B.g.length);
+  const g=pad(A.g,n).map((c,i)=>lerpColor(c,pad(B.g,n)[i],t));
+  const s=lerp(A.stars,B.stars,t);
+  let sun=null;
+  if(A.sun&&B.sun) sun={cx:lerp(A.sun.cx,B.sun.cx,t),cy:lerp(A.sun.cy,B.sun.cy,t),r:lerp(A.sun.r,B.sun.r,t),c1:lerpColor(A.sun.c1,B.sun.c1,t),alpha:1};
+  else if(A.sun) sun={...A.sun,alpha:1-t};
+  else if(B.sun) sun={...B.sun,alpha:t};
+  return {g,stars:s,sun};
+}
+
+function setSkyHour(hour) {
+  skyFrom = buildSkyState(currentHour);
+  skyTo   = buildSkyState(hour);
+  targetHour = hour;
+  blendProg = 0;
+  blendStart = null;
+}
+
+function drawCloud(cx,cy,sc,a) {
+  const puffs=[[0,0,28],[-22,8,22],[22,8,22],[-12,-12,18],[12,-12,18]];
+  skyCtx.save(); skyCtx.globalAlpha=a;
+  puffs.forEach(([dx,dy,r])=>{
+    skyCtx.beginPath();
+    skyCtx.ellipse(cx+dx*sc,cy+dy*sc,r*1.5*sc,r*sc,0,0,Math.PI*2);
+    skyCtx.fillStyle='rgba(255,255,255,.88)'; skyCtx.fill();
+  });
+  skyCtx.restore();
+}
+
+function drawBird(x,y,sc,flap,a) {
+  const ws=16*sc, fy=flap*5*sc;
+  skyCtx.save(); skyCtx.globalAlpha=a;
+  skyCtx.strokeStyle='rgba(20,12,8,.82)'; skyCtx.lineWidth=1.5*sc;
+  skyCtx.beginPath();
+  skyCtx.moveTo(x-ws,y+fy);
+  skyCtx.quadraticCurveTo(x-ws*.5,y,x,y);
+  skyCtx.quadraticCurveTo(x+ws*.5,y,x+ws,y+fy);
+  skyCtx.stroke(); skyCtx.restore();
+}
+
+function skyFrame(ts) {
+  const t = ts * 0.001;
+
+  if(blendProg<1) {
+    if(!blendStart) blendStart=ts;
+    blendProg=Math.min(1,(ts-blendStart)/BLEND_DUR);
+    if(blendProg>=1) currentHour=targetHour;
+  }
+
+  const sky = blendProg<1&&skyFrom&&skyTo
+    ? blendStates(skyFrom,skyTo,eio(blendProg))
+    : buildSkyState(currentHour);
+
+  skyCtx.clearRect(0,0,skyW,skyH);
+
+  // Background gradient
+  const grad=skyCtx.createLinearGradient(0,0,0,skyH);
+  sky.g.forEach((c,i)=>grad.addColorStop(i/(sky.g.length-1),c));
+  skyCtx.fillStyle=grad; skyCtx.fillRect(0,0,skyW,skyH);
+
+  // Stars
+  if(sky.stars>.01) {
+    stars.forEach(s=>{
+      const tw=.5+.5*Math.sin(t*s.speed+s.phase);
+      skyCtx.beginPath(); skyCtx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      skyCtx.fillStyle=`rgba(255,255,255,${(sky.stars*tw).toFixed(3)})`; skyCtx.fill();
+    });
+  }
+
+  // Sun
+  if(sky.sun){
+    const {cx,cy,r,c1,alpha=1}=sky.sun;
+    const sx=cx*skyW, sy=cy*skyH;
+    const rgb=hexToRgb(c1);
+    const glow=skyCtx.createRadialGradient(sx,sy,0,sx,sy,r*2.8);
+    glow.addColorStop(0,`rgba(255,210,80,${(.22*alpha).toFixed(3)})`);
+    glow.addColorStop(1,'transparent');
+    skyCtx.beginPath(); skyCtx.arc(sx,sy,r*2.8,0,Math.PI*2);
+    skyCtx.fillStyle=glow; skyCtx.fill();
+
+    const disc=skyCtx.createRadialGradient(sx,sy,0,sx,sy,r);
+    disc.addColorStop(0,`rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha.toFixed(3)})`);
+    disc.addColorStop(.55,`rgba(${rgb[0]},${Math.max(0,rgb[1]-25)},${Math.max(0,rgb[2]-55)},${(.9*alpha).toFixed(3)})`);
+    disc.addColorStop(1,'transparent');
+    skyCtx.beginPath(); skyCtx.arc(sx,sy,r,0,Math.PI*2);
+    skyCtx.fillStyle=disc; skyCtx.fill();
+  }
+
+  const daylight=1-sky.stars;
+
+  // Clouds
+  if(daylight>.1){
+    clouds.forEach(c=>{
+      c.x+=c.speed; if(c.x>skyW*1.3) c.x=-skyW*.25;
+      drawCloud(c.x,c.y,c.sc,c.a*Math.min(daylight,.9));
+    });
+  }
+
+  // Birds
+  if(sky.stars<.28){
+    birds.forEach(b=>{
+      b.x+=b.speed; if(b.x>skyW+30) b.x=-30;
+      const flap=Math.sin(t*3+b.fo);
+      const a=(1-sky.stars*3)*.55;
+      if(a>0) drawBird(b.x,b.y,b.sc,flap,a);
+    });
+  }
+
+  // Dark overlay
+  const ov=skyCtx.createLinearGradient(0,0,0,skyH);
+  ov.addColorStop(0,'rgba(0,0,0,.12)');
+  ov.addColorStop(.6,'rgba(0,0,0,.30)');
+  ov.addColorStop(1,'rgba(0,0,0,.52)');
+  skyCtx.fillStyle=ov; skyCtx.fillRect(0,0,skyW,skyH);
+
+  requestAnimationFrame(skyFrame);
+}
+
+resizeSky();
+requestAnimationFrame(skyFrame);
+
+// ═══════════════════════════════════════════════════════════════
+// PHASE PILL
+// ═══════════════════════════════════════════════════════════════
+let phaseTimeout;
+function showPhase(hour) {
+  const pill = document.getElementById('phasePill');
+  pill.textContent = SKY_PHASES[hour] || '';
+  pill.classList.add('visible');
+  clearTimeout(phaseTimeout);
+  phaseTimeout = setTimeout(()=>pill.classList.remove('visible'), 2400);
+
+  // Also update badge
+  document.getElementById('badgePhase').textContent = SKY_PHASES[hour] || '';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UV UTILITIES
+// ═══════════════════════════════════════════════════════════════
+function formatHour(h) {
+  if(h===0) return '12 AM';
+  if(h===12) return '12 PM';
+  return h<12?`${h} AM`:`${h-12} PM`;
+}
+
+function getOptimalWindow(uvData) {
+  let windows=[], inWin=false, start=null;
+  uvData.forEach((v,h)=>{
+    if(v>=3&&v<=7){if(!inWin){inWin=true;start=h;}}
+    else{if(inWin){windows.push({start,end:h-1});inWin=false;}}
+  });
+  if(inWin) windows.push({start,end:uvData.length-1});
+  if(!windows.length) return null;
+  return windows.sort((a,b)=>(b.end-b.start)-(a.end-a.start))[0];
+}
+
+function getVitDPotential(uvData) {
+  const sum=uvData.reduce((a,v)=>a+v,0);
+  if(sum>30) return {label:'High',color:'#6fcf7a'};
+  if(sum>15) return {label:'Moderate',color:'#f5a623'};
+  return {label:'Low',color:'#4a6fa5'};
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CHART
+// ═══════════════════════════════════════════════════════════════
+let uvChart = null;
+let lastUVData = null;
+const NOW_HOUR = new Date().getHours();
+
+// Custom zone band plugin
+const zoneBandPlugin = {
+  id: 'zoneBands',
+  beforeDraw(chart) {
+    const {ctx, chartArea:{left,right,top,bottom}, scales:{y}} = chart;
+    // Optimal zone: UV 3–7
+    const y7 = y.getPixelForValue(7);
+    const y3 = y.getPixelForValue(3);
+    const yMax = y.getPixelForValue(y.max);
+    ctx.save();
+    ctx.fillStyle='rgba(111,207,122,0.10)';
+    ctx.fillRect(left, y7, right-left, y3-y7);
+    ctx.fillStyle='rgba(224,94,94,0.10)';
+    ctx.fillRect(left, yMax, right-left, y7-yMax);
+    ctx.restore();
+  }
+};
+
+function buildChart(uvData) {
+  const START=5, END=21;
+  const labels=[], data=[], pointColors=[];
+
+  for(let h=START;h<=END;h++){
+    labels.push(formatHour(h));
+    const v=uvData[h]||0;
+    data.push(v);
+    pointColors.push(h===NOW_HOUR?'#ffffff':getColor(v));
+  }
+
+  if(uvChart) uvChart.destroy();
+
+  const ctx = document.getElementById('uvChart').getContext('2d');
+  const grad = ctx.createLinearGradient(0,0,0,200);
+  grad.addColorStop(0,'rgba(245,166,35,0.65)');
+  grad.addColorStop(1,'rgba(245,166,35,0.02)');
+
+  uvChart = new Chart(ctx, {
+    type: 'line',
+    plugins: [zoneBandPlugin],
+    data: {
+      labels,
+      datasets:[{
+        data,
+        borderColor: '#f5a623',
+        borderWidth: 2.5,
+        backgroundColor: grad,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: pointColors,
+        pointBorderColor: 'transparent',
+        pointRadius: data.map((_,i)=> (START+i)===NOW_HOUR ? 7 : 4),
+        pointHoverRadius: 8,
+        pointBorderWidth: data.map((_,i)=> (START+i)===NOW_HOUR ? 2 : 0),
+        pointHoverBorderColor: '#ffffff',
+        pointHoverBorderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 800, easing: 'easeInOutQuart' },
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false },
+      },
+      onHover: (event, elements) => {
+        if(!elements.length) return;
+        const idx = elements[0].index;
+        const hour = START + idx;
+        const uv = uvData[hour] || 0;
+        updateHoverPanel(hour, uv);
+        setSkyHour(hour);
+        showPhase(hour);
+      },
+      scales: {
+        x: {
+          grid:{ color:'rgba(255,255,255,0.06)', drawBorder:false },
+          ticks:{ color:'rgba(240,236,228,0.45)', font:{size:10}, maxRotation:0 }
+        },
+        y: {
+          min: 0,
+          suggestedMax: Math.max(...data, 8),
+          grid:{ color:'rgba(255,255,255,0.07)', drawBorder:false },
+          ticks:{ color:'rgba(240,236,228,0.45)', font:{size:10}, stepSize:2 }
+        }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HOVER PANEL
+// ═══════════════════════════════════════════════════════════════
+function updateHoverPanel(hour, uv) {
+  const tier = getTier(uv);
+  const info = UV_TIERS[tier];
+  const roast = getRoast(uv, hour);
+
+  const panel = document.getElementById('hoverPanel');
+  panel.style.background = info.bg;
+  panel.style.borderColor = info.color + '28';
+  panel.classList.add('visible');
+
+  document.getElementById('panelTime').textContent = formatHour(hour);
+  document.getElementById('panelUV').textContent = uv.toFixed(1);
+  document.getElementById('panelUV').style.color = info.color;
+
+  const badge = document.getElementById('panelBadge');
+  badge.textContent = `UV ${uv.toFixed(1)}`;
+  badge.style.color = info.color;
+  badge.style.borderColor = info.color + '66';
+  badge.style.background = info.color + '22';
+
+  document.getElementById('panelMood').textContent = info.label;
+  document.getElementById('panelRoast').textContent = roast;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STAT CARDS + ADVICE
+// ═══════════════════════════════════════════════════════════════
+function populateStats(uvData, cityName) {
+  const currentUV = uvData[NOW_HOUR] || 0;
+  const color = getColor(currentUV);
+  document.getElementById('statUV').textContent = currentUV.toFixed(1);
+  document.getElementById('statUV').style.color = color;
+  document.getElementById('statUVSub').textContent = UV_TIERS[getTier(currentUV)].label;
+
+  const win = getOptimalWindow(uvData);
+  const winEl = document.getElementById('statWindow');
+  if(win) {
+    winEl.textContent = `${formatHour(win.start)}–${formatHour(win.end)}`;
+    winEl.style.color = '#6fcf7a';
+  } else {
+    winEl.textContent = 'None today';
+    winEl.style.color = '#4a6fa5';
+  }
+
+  const pot = getVitDPotential(uvData);
+  document.getElementById('statPotential').textContent = pot.label;
+  document.getElementById('statPotential').style.color = pot.color;
+
+  // Header badge
+  document.getElementById('badgeCity').textContent = cityName;
+  document.getElementById('badgeDate').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('headerBadge').classList.add('visible');
+
+  // Advice
+  const advice = document.getElementById('adviceContent');
+  const peak = Math.max(...uvData);
+  let html = '';
+
+  if(win) {
+    html += `<div class="tip-row"><span class="tip-icon">🌿</span><span class="tip-text">Best window: <span class="hi">${formatHour(win.start)} – ${formatHour(win.end)}</span>. Aim for 10–30 minutes of direct skin exposure.</span></div>`;
+  } else {
+    html += `<div class="tip-row"><span class="tip-icon">🌫️</span><span class="tip-text">No optimal UV window today. Cloud cover or latitude doing its thing.</span></div>`;
+  }
+  if(peak>8) {
+    html += `<div class="tip-row"><span class="tip-icon">🔥</span><span class="tip-text">Peak UV hits <span class="danger">${peak.toFixed(1)}</span> today. Sunscreen isn't optional at that point.</span></div>`;
+  }
+  if(currentUV>=8) {
+    html += `<div class="tip-row"><span class="tip-icon">⚠️</span><span class="tip-text">Right now: dangerous UV. SPF or stay inside.</span></div>`;
+  } else if(currentUV>=3&&currentUV<=7) {
+    html += `<div class="tip-row"><span class="tip-icon">✅</span><span class="tip-text">Right now is your window. Go outside for 10–30 minutes of direct skin exposure.</span></div>`;
+  } else {
+    html += `<div class="tip-row"><span class="tip-icon">💤</span><span class="tip-text">UV too low right now for meaningful vitamin D synthesis.</span></div>`;
+  }
+  html += `<div class="tip-row"><span class="tip-icon">ℹ️</span><span class="tip-text">Glass, clouds, and sunscreen all block UV-B. Only direct skin in open air counts.</span></div>`;
+
+  html += `<div class="skin-label" style="margin-top:14px">Suggested exposure by skin tone</div>`;
+  [['Fair skin','8–12 min'],['Medium skin','15–20 min'],['Darker skin','25–40 min']].forEach(([type,time])=>{
+    html += `<div class="skin-row"><span class="skin-type">${type}</span><span class="skin-time">${time}</span></div>`;
+  });
+
+  advice.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// API
+// ═══════════════════════════════════════════════════════════════
+async function geocodeCity(city) {
+  const url=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`;
+  const res=await fetch(url,{headers:{'User-Agent':'SunDose/1.0'}});
+  const data=await res.json();
+  if(!data.length) throw new Error('City not found');
+  return {lat:parseFloat(data[0].lat),lon:parseFloat(data[0].lon),name:data[0].display_name.split(',')[0]};
+}
+
+async function reverseGeocode(lat,lon) {
+  const url=`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
+  const res=await fetch(url,{headers:{'User-Agent':'SunDose/1.0'}});
+  const data=await res.json();
+  return data.address?.city||data.address?.town||data.address?.village||'Your Location';
+}
+
+async function fetchUV(lat,lon) {
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=uv_index&timezone=auto&forecast_days=1`;
+  const res=await fetch(url);
+  const data=await res.json();
+  return data.hourly.uv_index.slice(0,24);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI STATE
+// ═══════════════════════════════════════════════════════════════
+function showLoading(v) {
+  document.getElementById('loadingState').style.display=v?'block':'none';
+  document.getElementById('emptyState').style.display='none';
+}
+function showError(msg) {
+  const el=document.getElementById('errorCard');
+  el.textContent=msg; el.style.display=msg?'block':'none';
+}
+function showData(uvData, cityName) {
+  lastUVData=uvData;
+  document.getElementById('dataSection').classList.add('visible');
+  document.getElementById('loadingState').style.display='none';
+  document.getElementById('emptyState').style.display='none';
+  populateStats(uvData, cityName);
+  buildChart(uvData);
+  setSkyHour(NOW_HOUR);
+  showPhase(NOW_HOUR);
+}
+
+async function loadCity(lat, lon, name) {
+  showLoading(true);
+  showError('');
+  try {
+    const uvData = await fetchUV(lat, lon);
+    showData(uvData, name);
+  } catch(e) {
+    showLoading(false);
+    showError('Failed to fetch UV data. Check your connection.');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════════════════════════
+document.getElementById('searchBtn').addEventListener('click', async () => {
+  const city = document.getElementById('cityInput').value.trim();
+  if(!city) return;
+  showLoading(true); showError('');
+  try {
+    const {lat,lon,name} = await geocodeCity(city);
+    await loadCity(lat, lon, name);
+  } catch(e) {
+    showLoading(false);
+    showError('City not found. Try a different name.');
+  }
+});
+
+document.getElementById('cityInput').addEventListener('keydown', e => {
+  if(e.key==='Enter') document.getElementById('searchBtn').click();
+});
+
+document.getElementById('geoBtn').addEventListener('click', () => {
+  if(!navigator.geolocation) { showError('Geolocation not supported.'); return; }
+  showLoading(true); showError('');
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const {latitude:lat,longitude:lon} = pos.coords;
+    try {
+      const name = await reverseGeocode(lat,lon);
+      await loadCity(lat, lon, name);
+    } catch(e) {
+      showLoading(false);
+      showError('Could not load UV data for your location.');
+    }
+  }, () => {
+    showLoading(false);
+    showError('Location access denied.');
+  });
+});
+
+// Boot sky to current hour
+setSkyHour(NOW_HOUR);
+</script>
+</body>
+</html>
