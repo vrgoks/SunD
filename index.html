@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SunDose — Vitamin D Tracker</title>
+<title>Sun-D — Vitamin D Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:ital,wght@0,300;0,400;0,600;1,400&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -86,6 +86,53 @@
     margin-top: 3px;
     font-weight: 600;
   }
+  .app-subtitle {
+    font-size: 12px;
+    color: rgba(240,236,228,0.45);
+    font-style: italic;
+    margin-top: 5px;
+    font-family: 'DM Sans', sans-serif;
+    max-width: 300px;
+    line-height: 1.4;
+  }
+
+  /* REGIONAL RANK CARD */
+  .rank-card {
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 14px 12px;
+    text-align: center;
+  }
+  .rank-loading { color: rgba(240,236,228,0.35); font-size: 11px; }
+  .rank-number {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .rank-sub {
+    font-size: 10px;
+    color: rgba(240,236,228,0.45);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .rank-bar-wrap {
+    display: flex;
+    gap: 2px;
+    justify-content: center;
+    margin-top: 8px;
+  }
+  .rank-bar {
+    width: 6px;
+    height: 18px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.12);
+    transition: background 0.3s ease;
+  }
+  .rank-bar.active { background: var(--amber); }
+  .rank-bar.you { background: var(--green); }
 
   /* PHASE PILL */
   .phase-pill {
@@ -416,11 +463,14 @@
 <div id="app">
   <!-- Header -->
   <div class="header">
-    <div class="app-name">Sun<span>Dose</span></div>
+    <div>
+      <div class="app-name">Sun<span>-D</span></div>
+      <div class="app-subtitle">Your simple guide to maximum Vitamin D absorption in your region</div>
+    </div>
     <div class="header-badge" id="headerBadge">
       <div class="badge-city" id="badgeCity"></div>
       <div class="badge-date" id="badgeDate"></div>
-      <div class="badge-phase" id="badgePhase"></div>
+      <div class="badge-phase" id="liveClock"></div>
     </div>
   </div>
 
@@ -458,9 +508,9 @@
         <div class="stat-label">Best Window</div>
         <div class="stat-value" id="statWindow" style="font-size:17px;padding-top:6px">—</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Vit D Today</div>
-        <div class="stat-value" id="statPotential" style="font-size:22px;padding-top:6px">—</div>
+      <div class="stat-card rank-card" id="rankCard">
+        <div class="stat-label">Regional UV Rank</div>
+        <div class="rank-loading" id="rankContent">Search a city to compare</div>
       </div>
     </div>
 
@@ -810,6 +860,20 @@ function skyFrame(ts) {
 resizeSky();
 requestAnimationFrame(skyFrame);
 
+// Live clock
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+  const hh = h % 12 || 12;
+  const mm = String(m).padStart(2,'0');
+  const ss = String(s).padStart(2,'0');
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const el = document.getElementById('liveClock');
+  if(el) el.textContent = `${hh}:${mm}:${ss} ${ampm} ✦`;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
 // ═══════════════════════════════════════════════════════════════
 // PHASE PILL
 // ═══════════════════════════════════════════════════════════════
@@ -820,10 +884,142 @@ function showPhase(hour) {
   pill.classList.add('visible');
   clearTimeout(phaseTimeout);
   phaseTimeout = setTimeout(()=>pill.classList.remove('visible'), 2400);
-
-  // Also update badge
-  document.getElementById('badgePhase').textContent = SKY_PHASES[hour] || '';
 }
+
+// ═══════════════════════════════════════════════════════════════
+// REGIONAL UV RANKING
+// ═══════════════════════════════════════════════════════════════
+
+// City pools by continent
+const CONTINENT_CITIES = {
+  asia: [
+    {name:'Mumbai',lat:19.07,lon:72.87},
+    {name:'Delhi',lat:28.61,lon:77.20},
+    {name:'Dubai',lat:25.20,lon:55.27},
+    {name:'Bangkok',lat:13.75,lon:100.50},
+    {name:'Singapore',lat:1.35,lon:103.82},
+    {name:'Kolkata',lat:22.57,lon:88.36},
+    {name:'Karachi',lat:24.86,lon:67.01},
+    {name:'Riyadh',lat:24.69,lon:46.72},
+    {name:'Jakarta',lat:-6.21,lon:106.85},
+    {name:'Dhaka',lat:23.81,lon:90.41},
+  ],
+  africa: [
+    {name:'Cairo',lat:30.06,lon:31.25},
+    {name:'Lagos',lat:6.52,lon:3.38},
+    {name:'Nairobi',lat:-1.29,lon:36.82},
+    {name:'Johannesburg',lat:-26.20,lon:28.04},
+    {name:'Casablanca',lat:33.59,lon:-7.62},
+    {name:'Accra',lat:5.56,lon:-0.20},
+    {name:'Addis Ababa',lat:9.03,lon:38.74},
+    {name:'Dar es Salaam',lat:-6.79,lon:39.21},
+    {name:'Khartoum',lat:15.55,lon:32.53},
+    {name:'Luanda',lat:-8.84,lon:13.23},
+  ],
+  europe: [
+    {name:'London',lat:51.51,lon:-0.13},
+    {name:'Paris',lat:48.86,lon:2.35},
+    {name:'Madrid',lat:40.42,lon:-3.70},
+    {name:'Rome',lat:41.90,lon:12.50},
+    {name:'Berlin',lat:52.52,lon:13.41},
+    {name:'Istanbul',lat:41.01,lon:28.95},
+    {name:'Athens',lat:37.98,lon:23.73},
+    {name:'Barcelona',lat:41.39,lon:2.16},
+    {name:'Lisbon',lat:38.72,lon:-9.14},
+    {name:'Warsaw',lat:52.23,lon:21.01},
+  ],
+  americas: [
+    {name:'São Paulo',lat:-23.55,lon:-46.63},
+    {name:'Mexico City',lat:19.43,lon:-99.13},
+    {name:'New York',lat:40.71,lon:-74.01},
+    {name:'Los Angeles',lat:34.05,lon:-118.24},
+    {name:'Buenos Aires',lat:-34.60,lon:-58.38},
+    {name:'Bogotá',lat:4.71,lon:-74.07},
+    {name:'Lima',lat:-12.05,lon:-77.04},
+    {name:'Miami',lat:25.77,lon:-80.19},
+    {name:'Toronto',lat:43.65,lon:-79.38},
+    {name:'Caracas',lat:10.49,lon:-66.88},
+  ],
+};
+
+function getContinentsForLat(lat, lon) {
+  // Pick 2 nearest continents based on rough geography
+  if(lat > 0 && lon > 25 && lon < 180) return ['asia','africa'];       // South/SE Asia → Asia + Africa
+  if(lat > 0 && lon >= -30 && lon <= 25) return ['europe','africa'];   // Middle East/North Africa
+  if(lat < 0 && lon > 25) return ['africa','asia'];                    // Southern Africa
+  if(lon < -30 && lon > -170) return ['americas','europe'];            // Americas
+  return ['asia','africa'];                                            // fallback
+}
+
+function getDailyPeak(uvArray) {
+  return Math.max(...uvArray);
+}
+
+async function fetchUVPeak(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=uv_index&timezone=auto&forecast_days=1`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return getDailyPeak(data.hourly.uv_index.slice(0,24));
+}
+
+async function buildRegionalRanking(userLat, userLon, userName, userUVData) {
+  const el = document.getElementById('rankContent');
+  el.innerHTML = '<div class="rank-loading">Comparing cities…</div>';
+
+  try {
+    const [c1, c2] = getContinentsForLat(userLat, userLon);
+    const pool = [...CONTINENT_CITIES[c1], ...CONTINENT_CITIES[c2]];
+    // Pick 6 representative cities spread across both continents
+    const sample = [
+      ...CONTINENT_CITIES[c1].slice(0,3),
+      ...CONTINENT_CITIES[c2].slice(0,3),
+    ];
+
+    const userPeak = getDailyPeak(userUVData);
+
+    // Fetch peaks in parallel
+    const results = await Promise.all(
+      sample.map(async city => {
+        try {
+          const peak = await fetchUVPeak(city.lat, city.lon);
+          return { name: city.name, peak };
+        } catch { return null; }
+      })
+    );
+
+    const valid = results.filter(Boolean);
+    valid.push({ name: userName, peak: userPeak, isUser: true });
+    valid.sort((a,b) => b.peak - a.peak);
+
+    const total = valid.length;
+    const userIdx = valid.findIndex(c => c.isUser);
+    const rank = userIdx + 1;
+
+    // Color based on rank
+    const rankColor = rank <= 2 ? '#6fcf7a' : rank <= Math.ceil(total/2) ? '#f5a623' : '#4a6fa5';
+
+    // Bar chart
+    const bars = valid.map((c,i) => {
+      const cls = c.isUser ? 'rank-bar you' : (i < rank ? 'rank-bar active' : 'rank-bar');
+      return `<div class="${cls}" title="${c.name}: UV ${c.peak.toFixed(1)}"></div>`;
+    }).join('');
+
+    const continent1Name = c1.charAt(0).toUpperCase() + c1.slice(1);
+    const continent2Name = c2.charAt(0).toUpperCase() + c2.slice(1);
+
+    el.innerHTML = `
+      <div class="rank-number" style="color:${rankColor}">#${rank}<span style="font-size:14px;color:rgba(240,236,228,0.45)"> of ${total}</span></div>
+      <div class="rank-sub">${userName} vs major cities<br>${continent1Name} &amp; ${continent2Name}</div>
+      <div class="rank-bar-wrap">${bars}</div>
+      <div class="rank-sub" style="margin-top:6px">Peak UV today: <span style="color:${rankColor};font-weight:600">${userPeak.toFixed(1)}</span></div>
+    `;
+  } catch(e) {
+    el.innerHTML = '<div class="rank-loading">Comparison unavailable</div>';
+  }
+}
+
+// Store coords for ranking
+let lastLat = null, lastLon = null;
 
 // ═══════════════════════════════════════════════════════════════
 // UV UTILITIES
@@ -997,8 +1193,7 @@ function populateStats(uvData, cityName) {
   }
 
   const pot = getVitDPotential(uvData);
-  document.getElementById('statPotential').textContent = pot.label;
-  document.getElementById('statPotential').style.color = pot.color;
+  // ranking is built separately via buildRegionalRanking after data loads
 
   // Header badge
   document.getElementById('badgeCity').textContent = cityName;
@@ -1085,9 +1280,11 @@ function showData(uvData, cityName) {
 async function loadCity(lat, lon, name) {
   showLoading(true);
   showError('');
+  lastLat = lat; lastLon = lon;
   try {
     const uvData = await fetchUV(lat, lon);
     showData(uvData, name);
+    buildRegionalRanking(lat, lon, name, uvData);
   } catch(e) {
     showLoading(false);
     showError('Failed to fetch UV data. Check your connection.');
